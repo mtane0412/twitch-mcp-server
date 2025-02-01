@@ -12,6 +12,9 @@ A Model Context Protocol (MCP) server that interacts with the Twitch API. This s
 - Get live streams (filterable by game and language)
 - Get global emotes
 - Get global chat badges
+- Get user information
+- Get clips from a channel
+- Get chat settings
 - Get videos from a specified channel
 - Get comments from archived videos (using GraphQL API)
 
@@ -174,6 +177,37 @@ Input: None required
 Retrieves a list of Twitch global chat badges.
 
 Input: None required
+
+### get_users
+Retrieves information about specified Twitch users.
+
+Input:
+```json
+{
+  "userNames": ["string"] // Required: Array of Twitch usernames (max 100)
+}
+```
+
+### get_clips
+Retrieves clips from a specified channel.
+
+Input:
+```json
+{
+  "channelName": "string", // Required: Twitch channel name
+  "limit": "number"        // Optional: Number of clips to retrieve (1-100, default: 20)
+}
+```
+
+### get_chat_settings
+Retrieves chat settings for a specified channel.
+
+Input:
+```json
+{
+  "channelName": "string" // Required: Twitch channel name
+}
+```
 
 ### get_videos
 Retrieves videos from a specified channel.

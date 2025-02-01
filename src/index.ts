@@ -240,50 +240,6 @@ class TwitchServer {
           },
         },
         {
-          name: 'get_chatters',
-          description: 'チャット参加者リストを取得します',
-          inputSchema: {
-            type: 'object',
-            properties: {
-              channelName: {
-                type: 'string',
-                description: 'Twitchチャンネル名',
-              },
-              limit: {
-                type: 'number',
-                description: '取得する最大参加者数(デフォルト: 100)',
-                minimum: 1,
-                maximum: 1000,
-              },
-            },
-            required: ['channelName'],
-          },
-        },
-        {
-          name: 'get_eventsub_subscriptions',
-          description: 'EventSubサブスクリプションのリストを取得します',
-          inputSchema: {
-            type: 'object',
-            properties: {
-              status: {
-                type: 'string',
-                description: 'サブスクリプションのステータスでフィルター (enabled, webhook_callback_verification_pending, webhook_callback_verification_failed, notification_failures_exceeded, authorization_revoked, user_removed)',
-                enum: ['enabled', 'webhook_callback_verification_pending', 'webhook_callback_verification_failed', 'notification_failures_exceeded', 'authorization_revoked', 'user_removed'],
-              },
-              type: {
-                type: 'string',
-                description: 'サブスクリプションのタイプでフィルター',
-              },
-              limit: {
-                type: 'number',
-                description: '取得する最大サブスクリプション数(デフォルト: 100)',
-                minimum: 1,
-                maximum: 1000,
-              },
-            },
-          },
-        },
-        {
           name: 'get_videos',
           description: 'チャンネルのビデオを取得します',
           inputSchema: {
@@ -622,69 +578,6 @@ class TwitchServer {
                     slowModeDelay: settings.slowModeDelay,
                     subscriberOnlyModeEnabled: settings.subscriberOnlyModeEnabled,
                     uniqueChatModeEnabled: settings.uniqueChatModeEnabled,
-                  }, null, 2),
-                },
-              ],
-            };
-          }
-
-          case 'get_eventsub_subscriptions': {
-            const args = request.params.arguments as {
-              status?: string;
-              type?: string;
-              limit?: number;
-            };
-            const limit = args?.limit ?? 100;
-            const subscriptions = await this.apiClient.eventSub.getSubscriptions();
-            const filteredSubscriptions = subscriptions.data
-              .slice(0, limit)
-              .filter(sub => {
-                if (args?.status && sub.status !== args.status) return false;
-                if (args?.type && sub.type !== args.type) return false;
-                return true;
-              });
-
-            return {
-              content: [
-                {
-                  type: 'text',
-                  text: JSON.stringify({
-                    total: filteredSubscriptions.length,
-                    totalCost: subscriptions.totalCost,
-                    maxTotalCost: subscriptions.maxTotalCost,
-                    subscriptions: filteredSubscriptions.map(subscription => ({
-                      id: subscription.id,
-                      status: subscription.status,
-                      type: subscription.type,
-                      condition: subscription.condition,
-                      creationDate: subscription.creationDate,
-                      transport: subscription._transport,
-                      cost: subscription.cost,
-                    })),
-                  }, null, 2),
-                },
-              ],
-            };
-          }
-
-          case 'get_chatters': {
-            const { channelName, limit = 100 } = request.params.arguments as { channelName: string; limit?: number };
-            const user = await this.apiClient.users.getUserByName(channelName);
-            if (!user) {
-              throw new McpError(ErrorCode.InvalidParams, `Channel "${channelName}" not found`);
-            }
-            const chatters = await this.apiClient.chat.getChatters(user.id, { limit });
-            return {
-              content: [
-                {
-                  type: 'text',
-                  text: JSON.stringify({
-                    total: chatters.total,
-                    chatters: chatters.data.map(chatter => ({
-                      userId: chatter.userId,
-                      userName: chatter.userName,
-                      userDisplayName: chatter.userDisplayName,
-                    })),
                   }, null, 2),
                 },
               ],
