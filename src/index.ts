@@ -593,35 +593,36 @@ class TwitchServer {
           }
 
           case 'get_eventsub_subscriptions': {
-            const { status, type, limit = 100 } = request.params.arguments as {
+            const args = request.params.arguments as {
               status?: string;
               type?: string;
               limit?: number;
             };
-            const subscriptions = await this.apiClient.eventSub.getSubscriptions({
-              status,
-              type,
-              limit,
-            });
+            const limit = args?.limit ?? 100;
+            const subscriptions = await this.apiClient.eventSub.getSubscriptions();
+            const filteredSubscriptions = subscriptions.data
+              .slice(0, limit)
+              .filter(sub => {
+                if (args?.status && sub.status !== args.status) return false;
+                if (args?.type && sub.type !== args.type) return false;
+                return true;
+              });
+
             return {
               content: [
                 {
                   type: 'text',
                   text: JSON.stringify({
-                    total: subscriptions.total,
+                    total: filteredSubscriptions.length,
                     totalCost: subscriptions.totalCost,
                     maxTotalCost: subscriptions.maxTotalCost,
-                    subscriptions: subscriptions.data.map(subscription => ({
+                    subscriptions: filteredSubscriptions.map(subscription => ({
                       id: subscription.id,
                       status: subscription.status,
                       type: subscription.type,
-                      version: subscription.version,
                       condition: subscription.condition,
                       creationDate: subscription.creationDate,
-                      transport: {
-                        method: subscription.transport.method,
-                        callback: subscription.transport.callback,
-                      },
+                      transport: subscription._transport,
                       cost: subscription.cost,
                     })),
                   }, null, 2),
