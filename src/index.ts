@@ -185,6 +185,24 @@ class TwitchServer {
             properties: {},
           },
         },
+        {
+          name: 'get_users',
+          description: 'ユーザーの情報を取得します',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              userNames: {
+                type: 'array',
+                description: 'Twitchユーザー名の配列',
+                items: {
+                  type: 'string',
+                },
+                maxItems: 100,
+              },
+            },
+            required: ['userNames'],
+          },
+        },
       ],
     }));
 
@@ -409,6 +427,29 @@ class TwitchServer {
                         },
                       ])
                     ),
+                  })), null, 2),
+                },
+              ],
+            };
+          }
+
+          case 'get_users': {
+            const { userNames } = request.params.arguments as { userNames: string[] };
+            const users = await this.apiClient.users.getUsersByNames(userNames);
+            return {
+              content: [
+                {
+                  type: 'text',
+                  text: JSON.stringify(users.map(user => ({
+                    id: user.id,
+                    name: user.name,
+                    displayName: user.displayName,
+                    description: user.description,
+                    profilePictureUrl: user.profilePictureUrl,
+                    offlinePlaceholderUrl: user.offlinePlaceholderUrl,
+                    creationDate: user.creationDate,
+                    broadcasterType: user.broadcasterType,
+                    type: user.type,
                   })), null, 2),
                 },
               ],
