@@ -167,6 +167,40 @@ Retrieves a list of Twitch global chat badges.
 
 Input: None required
 
+### get_videos
+Retrieves videos from a specified channel.
+
+Input:
+```json
+{
+  "channelName": "string", // Required: Twitch channel name
+  "limit": "number"        // Optional: Number of videos to retrieve (1-100, default: 20)
+}
+```
+
+Example output:
+```json
+{
+  "total": 5,
+  "videos": [
+    {
+      "id": "1234567890",
+      "title": "Stream Title",
+      "description": "Video description",
+      "url": "https://www.twitch.tv/videos/1234567890",
+      "thumbnailUrl": "https://...",
+      "viewCount": 1000,
+      "creationDate": "2024-02-01T12:00:00Z",
+      "duration": "1h30m20s",
+      "language": "en",
+      "type": "archive",
+      "publishDate": "2024-02-01T12:00:00Z",
+      "mutedSegments": []
+    }
+  ]
+}
+```
+
 ## License
 
 MIT License

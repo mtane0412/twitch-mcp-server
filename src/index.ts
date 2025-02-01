@@ -281,6 +281,26 @@ class TwitchServer {
             },
           },
         },
+        {
+          name: 'get_videos',
+          description: 'チャンネルのビデオを取得します',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              channelName: {
+                type: 'string',
+                description: 'Twitchチャンネル名',
+              },
+              limit: {
+                type: 'number',
+                description: '取得する最大ビデオ数(デフォルト: 20)',
+                minimum: 1,
+                maximum: 100,
+              },
+            },
+            required: ['channelName'],
+          },
+        },
       ],
     }));
 
@@ -648,6 +668,39 @@ class TwitchServer {
                       userId: chatter.userId,
                       userName: chatter.userName,
                       userDisplayName: chatter.userDisplayName,
+                    })),
+                  }, null, 2),
+                },
+              ],
+            };
+          }
+
+          case 'get_videos': {
+            const { channelName, limit = 20 } = request.params.arguments as { channelName: string; limit?: number };
+            const user = await this.apiClient.users.getUserByName(channelName);
+            if (!user) {
+              throw new McpError(ErrorCode.InvalidParams, `Channel "${channelName}" not found`);
+            }
+            const videos = await this.apiClient.videos.getVideosByUser(user.id, { limit });
+            return {
+              content: [
+                {
+                  type: 'text',
+                  text: JSON.stringify({
+                    total: videos.data.length,
+                    videos: videos.data.map(video => ({
+                      id: video.id,
+                      title: video.title,
+                      description: video.description,
+                      url: video.url,
+                      thumbnailUrl: video.thumbnailUrl,
+                      viewCount: video.views,
+                      creationDate: video.creationDate,
+                      duration: video.duration,
+                      language: video.language,
+                      type: video.type,
+                      publishDate: video.publishDate,
+                      mutedSegments: video.mutedSegmentData,
                     })),
                   }, null, 2),
                 },
