@@ -78,26 +78,6 @@ class TwitchServer {
           },
         },
         {
-          name: 'get_followers',
-          description: 'フォロワー情報を取得します(注: この機能にはユーザーアクセストークンが必要です)',
-          inputSchema: {
-            type: 'object',
-            properties: {
-              channelName: {
-                type: 'string',
-                description: 'Twitchチャンネル名',
-              },
-              limit: {
-                type: 'number',
-                description: '取得する最大フォロワー数(デフォルト: 20)',
-                minimum: 1,
-                maximum: 100,
-              },
-            },
-            required: ['channelName'],
-          },
-        },
-        {
           name: 'get_top_games',
           description: '人気のゲームのリストを取得します',
           inputSchema: {
@@ -235,13 +215,6 @@ class TwitchServer {
                 },
               ],
             };
-          }
-
-          case 'get_followers': {
-            throw new McpError(
-              ErrorCode.InternalError,
-              'フォロワー情報の取得にはユーザーアクセストークンが必要です。現在この機能は利用できません。'
-            );
           }
 
           case 'get_top_games': {
