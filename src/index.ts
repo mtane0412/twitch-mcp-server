@@ -237,6 +237,26 @@ class TwitchServer {
             required: ['channelName'],
           },
         },
+        {
+          name: 'get_chatters',
+          description: 'チャット参加者リストを取得します',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              channelName: {
+                type: 'string',
+                description: 'Twitchチャンネル名',
+              },
+              limit: {
+                type: 'number',
+                description: '取得する最大参加者数(デフォルト: 100)',
+                minimum: 1,
+                maximum: 1000,
+              },
+            },
+            required: ['channelName'],
+          },
+        },
       ],
     }));
 
@@ -542,6 +562,30 @@ class TwitchServer {
                     slowModeDelay: settings.slowModeDelay,
                     subscriberOnlyModeEnabled: settings.subscriberOnlyModeEnabled,
                     uniqueChatModeEnabled: settings.uniqueChatModeEnabled,
+                  }, null, 2),
+                },
+              ],
+            };
+          }
+
+          case 'get_chatters': {
+            const { channelName, limit = 100 } = request.params.arguments as { channelName: string; limit?: number };
+            const user = await this.apiClient.users.getUserByName(channelName);
+            if (!user) {
+              throw new McpError(ErrorCode.InvalidParams, `Channel "${channelName}" not found`);
+            }
+            const chatters = await this.apiClient.chat.getChatters(user.id, { limit });
+            return {
+              content: [
+                {
+                  type: 'text',
+                  text: JSON.stringify({
+                    total: chatters.total,
+                    chatters: chatters.data.map(chatter => ({
+                      userId: chatter.userId,
+                      userName: chatter.userName,
+                      userDisplayName: chatter.userDisplayName,
+                    })),
                   }, null, 2),
                 },
               ],
