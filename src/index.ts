@@ -93,6 +93,40 @@ class TwitchServer {
           },
         },
         {
+          name: 'get_game',
+          description: '特定のゲームの情報を取得します',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              name: {
+                type: 'string',
+                description: 'ゲーム名',
+              },
+            },
+            required: ['name'],
+          },
+        },
+        {
+          name: 'search_categories',
+          description: 'ゲームやカテゴリーを検索します',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              query: {
+                type: 'string',
+                description: '検索キーワード',
+              },
+              limit: {
+                type: 'number',
+                description: '取得する最大カテゴリー数(デフォルト: 20)',
+                minimum: 1,
+                maximum: 100,
+              },
+            },
+            required: ['query'],
+          },
+        },
+        {
           name: 'search_channels',
           description: 'チャンネルを検索します',
           inputSchema: {
@@ -133,6 +167,22 @@ class TwitchServer {
                 maximum: 100,
               },
             },
+          },
+        },
+        {
+          name: 'get_global_emotes',
+          description: 'グローバルエモートのリストを取得します',
+          inputSchema: {
+            type: 'object',
+            properties: {},
+          },
+        },
+        {
+          name: 'get_global_badges',
+          description: 'グローバルチャットバッジのリストを取得します',
+          inputSchema: {
+            type: 'object',
+            properties: {},
           },
         },
       ],
@@ -234,6 +284,43 @@ class TwitchServer {
             };
           }
 
+          case 'get_game': {
+            const { name } = request.params.arguments as { name: string };
+            const game = await this.apiClient.games.getGameByName(name);
+            if (!game) {
+              throw new McpError(ErrorCode.InvalidParams, `Game "${name}" not found`);
+            }
+            return {
+              content: [
+                {
+                  type: 'text',
+                  text: JSON.stringify({
+                    id: game.id,
+                    name: game.name,
+                    boxArtUrl: game.boxArtUrl,
+                  }, null, 2),
+                },
+              ],
+            };
+          }
+
+          case 'search_categories': {
+            const { query, limit = 20 } = request.params.arguments as { query: string; limit?: number };
+            const categories = await this.apiClient.search.searchCategories(query, { limit });
+            return {
+              content: [
+                {
+                  type: 'text',
+                  text: JSON.stringify(categories.data.map(category => ({
+                    id: category.id,
+                    name: category.name,
+                    boxArtUrl: category.boxArtUrl,
+                  })), null, 2),
+                },
+              ],
+            };
+          }
+
           case 'search_channels': {
             const { query, limit = 20 } = request.params.arguments as { query: string; limit?: number };
             const channels = await this.apiClient.search.searchChannels(query, { limit });
@@ -279,6 +366,49 @@ class TwitchServer {
                     language: stream.language,
                     thumbnailUrl: stream.thumbnailUrl,
                     tags: stream.tags,
+                  })), null, 2),
+                },
+              ],
+            };
+          }
+
+          case 'get_global_emotes': {
+            const emotes = await this.apiClient.chat.getGlobalEmotes();
+            return {
+              content: [
+                {
+                  type: 'text',
+                  text: JSON.stringify(emotes.map(emote => ({
+                    id: emote.id,
+                    name: emote.name,
+                    urls: {
+                      url1x: emote.getImageUrl(1),
+                      url2x: emote.getImageUrl(2),
+                      url4x: emote.getImageUrl(4),
+                    },
+                  })), null, 2),
+                },
+              ],
+            };
+          }
+
+          case 'get_global_badges': {
+            const badges = await this.apiClient.chat.getGlobalBadges();
+            return {
+              content: [
+                {
+                  type: 'text',
+                  text: JSON.stringify(badges.map(badge => ({
+                    id: badge.id,
+                    versions: Object.fromEntries(
+                      badge.versions.map(version => [
+                        version.id,
+                        {
+                          title: version.title,
+                          imageUrl: version.getImageUrl(1),
+                        },
+                      ])
+                    ),
                   })), null, 2),
                 },
               ],
