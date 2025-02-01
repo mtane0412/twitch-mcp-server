@@ -10,22 +10,19 @@ import {
 import { ApiClient } from '@twurple/api';
 import { AppTokenAuthProvider } from '@twurple/auth';
 
-// モジュールトップレベルでの環境変数チェックを削除
-// ※　後述の通り、コンストラクタ内部でチェックする
+const CLIENT_ID = process.env.TWITCH_CLIENT_ID;
+const CLIENT_SECRET = process.env.TWITCH_CLIENT_SECRET;
 
-export class TwitchServer {
+if (!CLIENT_ID || !CLIENT_SECRET) {
+  throw new Error('TWITCH_CLIENT_ID and TWITCH_CLIENT_SECRET environment variables are required');
+}
+
+class TwitchServer {
   private server: Server;
   private apiClient: ApiClient;
 
   constructor() {
-    // インスタンス生成時に環境変数をチェックする
-    const CLIENT_ID = process.env.TWITCH_CLIENT_ID;
-    const CLIENT_SECRET = process.env.TWITCH_CLIENT_SECRET;
-    if (!CLIENT_ID || !CLIENT_SECRET) {
-      throw new Error('TWITCH_CLIENT_ID and TWITCH_CLIENT_SECRET environment variables are required');
-    }
-
-    const authProvider = new AppTokenAuthProvider(CLIENT_ID, CLIENT_SECRET);
+    const authProvider = new AppTokenAuthProvider(CLIENT_ID as string, CLIENT_SECRET as string);
     this.apiClient = new ApiClient({ authProvider });
 
     this.server = new Server(
@@ -50,7 +47,6 @@ export class TwitchServer {
   }
 
   private setupToolHandlers() {
-    // ListToolsRequest のハンドラー登録
     this.server.setRequestHandler(ListToolsRequestSchema, async () => ({
       tools: [
         {
@@ -67,11 +63,227 @@ export class TwitchServer {
             required: ['channelName'],
           },
         },
-        // …（省略）…
+        {
+          name: 'get_stream_info',
+          description: '配信情報を取得します',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              channelName: {
+                type: 'string',
+                description: 'Twitchチャンネル名',
+              },
+            },
+            required: ['channelName'],
+          },
+        },
+        {
+          name: 'get_top_games',
+          description: '人気のゲームのリストを取得します',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              limit: {
+                type: 'number',
+                description: '取得する最大ゲーム数(デフォルト: 20)',
+                minimum: 1,
+                maximum: 100,
+              },
+            },
+          },
+        },
+        {
+          name: 'get_game',
+          description: '特定のゲームの情報を取得します',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              name: {
+                type: 'string',
+                description: 'ゲーム名',
+              },
+            },
+            required: ['name'],
+          },
+        },
+        {
+          name: 'search_categories',
+          description: 'ゲームやカテゴリーを検索します',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              query: {
+                type: 'string',
+                description: '検索キーワード',
+              },
+              limit: {
+                type: 'number',
+                description: '取得する最大カテゴリー数(デフォルト: 20)',
+                minimum: 1,
+                maximum: 100,
+              },
+            },
+            required: ['query'],
+          },
+        },
+        {
+          name: 'search_channels',
+          description: 'チャンネルを検索します',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              query: {
+                type: 'string',
+                description: '検索キーワード',
+              },
+              limit: {
+                type: 'number',
+                description: '取得する最大チャンネル数(デフォルト: 20)',
+                minimum: 1,
+                maximum: 100,
+              },
+            },
+            required: ['query'],
+          },
+        },
+        {
+          name: 'get_streams',
+          description: '現在ライブ配信中のストリームを取得します',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              game: {
+                type: 'string',
+                description: 'ゲーム名でフィルター',
+              },
+              language: {
+                type: 'string',
+                description: '言語でフィルター (例: ja, en)',
+              },
+              limit: {
+                type: 'number',
+                description: '取得する最大ストリーム数(デフォルト: 20)',
+                minimum: 1,
+                maximum: 100,
+              },
+            },
+          },
+        },
+        {
+          name: 'get_global_emotes',
+          description: 'グローバルエモートのリストを取得します',
+          inputSchema: {
+            type: 'object',
+            properties: {},
+          },
+        },
+        {
+          name: 'get_global_badges',
+          description: 'グローバルチャットバッジのリストを取得します',
+          inputSchema: {
+            type: 'object',
+            properties: {},
+          },
+        },
+        {
+          name: 'get_users',
+          description: 'ユーザーの情報を取得します',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              userNames: {
+                type: 'array',
+                description: 'Twitchユーザー名の配列',
+                items: {
+                  type: 'string',
+                },
+                maxItems: 100,
+              },
+            },
+            required: ['userNames'],
+          },
+        },
+        {
+          name: 'get_clips',
+          description: 'クリップの情報を取得します',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              channelName: {
+                type: 'string',
+                description: 'Twitchチャンネル名',
+              },
+              limit: {
+                type: 'number',
+                description: '取得する最大クリップ数(デフォルト: 20)',
+                minimum: 1,
+                maximum: 100,
+              },
+            },
+            required: ['channelName'],
+          },
+        },
+        {
+          name: 'get_chat_settings',
+          description: 'チャット設定を取得します',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              channelName: {
+                type: 'string',
+                description: 'Twitchチャンネル名',
+              },
+            },
+            required: ['channelName'],
+          },
+        },
+        {
+          name: 'get_chatters',
+          description: 'チャット参加者リストを取得します',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              channelName: {
+                type: 'string',
+                description: 'Twitchチャンネル名',
+              },
+              limit: {
+                type: 'number',
+                description: '取得する最大参加者数(デフォルト: 100)',
+                minimum: 1,
+                maximum: 1000,
+              },
+            },
+            required: ['channelName'],
+          },
+        },
+        {
+          name: 'get_eventsub_subscriptions',
+          description: 'EventSubサブスクリプションのリストを取得します',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              status: {
+                type: 'string',
+                description: 'サブスクリプションのステータスでフィルター (enabled, webhook_callback_verification_pending, webhook_callback_verification_failed, notification_failures_exceeded, authorization_revoked, user_removed)',
+                enum: ['enabled', 'webhook_callback_verification_pending', 'webhook_callback_verification_failed', 'notification_failures_exceeded', 'authorization_revoked', 'user_removed'],
+              },
+              type: {
+                type: 'string',
+                description: 'サブスクリプションのタイプでフィルター',
+              },
+              limit: {
+                type: 'number',
+                description: '取得する最大サブスクリプション数(デフォルト: 100)',
+                minimum: 1,
+                maximum: 1000,
+              },
+            },
+          },
+        },
       ],
     }));
 
-    // CallToolRequest のハンドラー登録
     this.server.setRequestHandler(CallToolRequestSchema, async (request) => {
       try {
         switch (request.params.name) {
@@ -151,7 +363,296 @@ export class TwitchServer {
             };
           }
 
-          // …（他のケースもそのまま）…
+          case 'get_top_games': {
+            const { limit = 20 } = request.params.arguments as { limit?: number };
+            const games = await this.apiClient.games.getTopGames({ limit });
+            return {
+              content: [
+                {
+                  type: 'text',
+                  text: JSON.stringify(games.data.map(game => ({
+                    id: game.id,
+                    name: game.name,
+                    boxArtUrl: game.boxArtUrl,
+                  })), null, 2),
+                },
+              ],
+            };
+          }
+
+          case 'get_game': {
+            const { name } = request.params.arguments as { name: string };
+            const game = await this.apiClient.games.getGameByName(name);
+            if (!game) {
+              throw new McpError(ErrorCode.InvalidParams, `Game "${name}" not found`);
+            }
+            return {
+              content: [
+                {
+                  type: 'text',
+                  text: JSON.stringify({
+                    id: game.id,
+                    name: game.name,
+                    boxArtUrl: game.boxArtUrl,
+                  }, null, 2),
+                },
+              ],
+            };
+          }
+
+          case 'search_categories': {
+            const { query, limit = 20 } = request.params.arguments as { query: string; limit?: number };
+            const categories = await this.apiClient.search.searchCategories(query, { limit });
+            return {
+              content: [
+                {
+                  type: 'text',
+                  text: JSON.stringify(categories.data.map(category => ({
+                    id: category.id,
+                    name: category.name,
+                    boxArtUrl: category.boxArtUrl,
+                  })), null, 2),
+                },
+              ],
+            };
+          }
+
+          case 'search_channels': {
+            const { query, limit = 20 } = request.params.arguments as { query: string; limit?: number };
+            const channels = await this.apiClient.search.searchChannels(query, { limit });
+            return {
+              content: [
+                {
+                  type: 'text',
+                  text: JSON.stringify(channels.data.map(channel => ({
+                    id: channel.id,
+                    name: channel.name,
+                    displayName: channel.displayName,
+                    game: channel.gameName,
+                    language: channel.language,
+                    tags: channel.tags,
+                  })), null, 2),
+                },
+              ],
+            };
+          }
+
+          case 'get_streams': {
+            const { game, language, limit = 20 } = request.params.arguments as {
+              game?: string;
+              language?: string;
+              limit?: number;
+            };
+            const streams = await this.apiClient.streams.getStreams({
+              game,
+              language,
+              limit,
+            });
+            return {
+              content: [
+                {
+                  type: 'text',
+                  text: JSON.stringify(streams.data.map(stream => ({
+                    userId: stream.userId,
+                    userName: stream.userName,
+                    title: stream.title,
+                    game: stream.gameName,
+                    viewers: stream.viewers,
+                    startedAt: stream.startDate,
+                    language: stream.language,
+                    thumbnailUrl: stream.thumbnailUrl,
+                    tags: stream.tags,
+                  })), null, 2),
+                },
+              ],
+            };
+          }
+
+          case 'get_global_emotes': {
+            const emotes = await this.apiClient.chat.getGlobalEmotes();
+            return {
+              content: [
+                {
+                  type: 'text',
+                  text: JSON.stringify(emotes.map(emote => ({
+                    id: emote.id,
+                    name: emote.name,
+                    urls: {
+                      url1x: emote.getImageUrl(1),
+                      url2x: emote.getImageUrl(2),
+                      url4x: emote.getImageUrl(4),
+                    },
+                  })), null, 2),
+                },
+              ],
+            };
+          }
+
+          case 'get_global_badges': {
+            const badges = await this.apiClient.chat.getGlobalBadges();
+            return {
+              content: [
+                {
+                  type: 'text',
+                  text: JSON.stringify(badges.map(badge => ({
+                    id: badge.id,
+                    versions: Object.fromEntries(
+                      badge.versions.map(version => [
+                        version.id,
+                        {
+                          title: version.title,
+                          imageUrl: version.getImageUrl(1),
+                        },
+                      ])
+                    ),
+                  })), null, 2),
+                },
+              ],
+            };
+          }
+
+          case 'get_users': {
+            const { userNames } = request.params.arguments as { userNames: string[] };
+            const users = await this.apiClient.users.getUsersByNames(userNames);
+            return {
+              content: [
+                {
+                  type: 'text',
+                  text: JSON.stringify(users.map(user => ({
+                    id: user.id,
+                    name: user.name,
+                    displayName: user.displayName,
+                    description: user.description,
+                    profilePictureUrl: user.profilePictureUrl,
+                    offlinePlaceholderUrl: user.offlinePlaceholderUrl,
+                    creationDate: user.creationDate,
+                    broadcasterType: user.broadcasterType,
+                    type: user.type,
+                  })), null, 2),
+                },
+              ],
+            };
+          }
+
+          case 'get_clips': {
+            const { channelName, limit = 20 } = request.params.arguments as { channelName: string; limit?: number };
+            const user = await this.apiClient.users.getUserByName(channelName);
+            if (!user) {
+              throw new McpError(ErrorCode.InvalidParams, `Channel "${channelName}" not found`);
+            }
+            const clips = await this.apiClient.clips.getClipsForBroadcaster(user.id, { limit });
+            return {
+              content: [
+                {
+                  type: 'text',
+                  text: JSON.stringify(clips.data.map(clip => ({
+                    id: clip.id,
+                    url: clip.url,
+                    embedUrl: clip.embedUrl,
+                    broadcasterId: clip.broadcasterId,
+                    broadcasterName: clip.broadcasterDisplayName,
+                    creatorId: clip.creatorId,
+                    creatorName: clip.creatorDisplayName,
+                    videoId: clip.videoId,
+                    gameId: clip.gameId,
+                    language: clip.language,
+                    title: clip.title,
+                    viewCount: clip.views,
+                    creationDate: clip.creationDate,
+                    thumbnailUrl: clip.thumbnailUrl,
+                    duration: clip.duration,
+                  })), null, 2),
+                },
+              ],
+            };
+          }
+
+          case 'get_chat_settings': {
+            const { channelName } = request.params.arguments as { channelName: string };
+            const user = await this.apiClient.users.getUserByName(channelName);
+            if (!user) {
+              throw new McpError(ErrorCode.InvalidParams, `Channel "${channelName}" not found`);
+            }
+            const settings = await this.apiClient.chat.getSettings(user.id);
+            return {
+              content: [
+                {
+                  type: 'text',
+                  text: JSON.stringify({
+                    emoteOnlyModeEnabled: settings.emoteOnlyModeEnabled,
+                    followerOnlyModeEnabled: settings.followerOnlyModeEnabled,
+                    followerOnlyModeDelay: settings.followerOnlyModeDelay,
+                    slowModeEnabled: settings.slowModeEnabled,
+                    slowModeDelay: settings.slowModeDelay,
+                    subscriberOnlyModeEnabled: settings.subscriberOnlyModeEnabled,
+                    uniqueChatModeEnabled: settings.uniqueChatModeEnabled,
+                  }, null, 2),
+                },
+              ],
+            };
+          }
+
+          case 'get_eventsub_subscriptions': {
+            const { status, type, limit = 100 } = request.params.arguments as {
+              status?: string;
+              type?: string;
+              limit?: number;
+            };
+            const subscriptions = await this.apiClient.eventSub.getSubscriptions({
+              status,
+              type,
+              limit,
+            });
+            return {
+              content: [
+                {
+                  type: 'text',
+                  text: JSON.stringify({
+                    total: subscriptions.total,
+                    totalCost: subscriptions.totalCost,
+                    maxTotalCost: subscriptions.maxTotalCost,
+                    subscriptions: subscriptions.data.map(subscription => ({
+                      id: subscription.id,
+                      status: subscription.status,
+                      type: subscription.type,
+                      version: subscription.version,
+                      condition: subscription.condition,
+                      creationDate: subscription.creationDate,
+                      transport: {
+                        method: subscription.transport.method,
+                        callback: subscription.transport.callback,
+                      },
+                      cost: subscription.cost,
+                    })),
+                  }, null, 2),
+                },
+              ],
+            };
+          }
+
+          case 'get_chatters': {
+            const { channelName, limit = 100 } = request.params.arguments as { channelName: string; limit?: number };
+            const user = await this.apiClient.users.getUserByName(channelName);
+            if (!user) {
+              throw new McpError(ErrorCode.InvalidParams, `Channel "${channelName}" not found`);
+            }
+            const chatters = await this.apiClient.chat.getChatters(user.id, { limit });
+            return {
+              content: [
+                {
+                  type: 'text',
+                  text: JSON.stringify({
+                    total: chatters.total,
+                    chatters: chatters.data.map(chatter => ({
+                      userId: chatter.userId,
+                      userName: chatter.userName,
+                      userDisplayName: chatter.userDisplayName,
+                    })),
+                  }, null, 2),
+                },
+              ],
+            };
+          }
 
           default:
             throw new McpError(ErrorCode.MethodNotFound, `Unknown tool: ${request.params.name}`);
@@ -174,8 +675,5 @@ export class TwitchServer {
   }
 }
 
-// このファイルが直接実行された場合のみサーバーを起動
-if (import.meta.url === process.argv[1] || process.argv[1]?.endsWith('index.js')) {
-  const server = new TwitchServer();
-  server.run().catch(console.error);
-}
+const server = new TwitchServer();
+server.run().catch(console.error);

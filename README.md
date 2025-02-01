@@ -69,10 +69,18 @@ npm start
 
 ## Development
 
-For development with TypeScript watch mode:
+For development:
+1. Start TypeScript watch mode in one terminal:
 ```bash
 npm run dev
 ```
+
+2. Start the server in another terminal:
+```bash
+npm start
+```
+
+This will automatically recompile TypeScript files when they change, and you'll need to restart the server to apply the changes.
 
 ## Available Tools
 
