@@ -223,6 +223,20 @@ class TwitchServer {
             required: ['channelName'],
           },
         },
+        {
+          name: 'get_chat_settings',
+          description: 'チャット設定を取得します',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              channelName: {
+                type: 'string',
+                description: 'Twitchチャンネル名',
+              },
+            },
+            required: ['channelName'],
+          },
+        },
       ],
     }));
 
@@ -504,6 +518,31 @@ class TwitchServer {
                     thumbnailUrl: clip.thumbnailUrl,
                     duration: clip.duration,
                   })), null, 2),
+                },
+              ],
+            };
+          }
+
+          case 'get_chat_settings': {
+            const { channelName } = request.params.arguments as { channelName: string };
+            const user = await this.apiClient.users.getUserByName(channelName);
+            if (!user) {
+              throw new McpError(ErrorCode.InvalidParams, `Channel "${channelName}" not found`);
+            }
+            const settings = await this.apiClient.chat.getSettings(user.id);
+            return {
+              content: [
+                {
+                  type: 'text',
+                  text: JSON.stringify({
+                    emoteOnlyModeEnabled: settings.emoteOnlyModeEnabled,
+                    followerOnlyModeEnabled: settings.followerOnlyModeEnabled,
+                    followerOnlyModeDelay: settings.followerOnlyModeDelay,
+                    slowModeEnabled: settings.slowModeEnabled,
+                    slowModeDelay: settings.slowModeDelay,
+                    subscriberOnlyModeEnabled: settings.subscriberOnlyModeEnabled,
+                    uniqueChatModeEnabled: settings.uniqueChatModeEnabled,
+                  }, null, 2),
                 },
               ],
             };
