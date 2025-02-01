@@ -12,12 +12,15 @@ A Model Context Protocol (MCP) server that interacts with the Twitch API. This s
 - Get live streams (filterable by game and language)
 - Get global emotes
 - Get global chat badges
+- Get videos from a specified channel
+- Get comments from archived videos (using GraphQL API)
 
 ## Prerequisites
 
 - Node.js (v18 or higher recommended)
 - Twitch Developer Account
 - Twitch API Client ID and Client Secret
+- Twitch GraphQL Client ID (for video comments feature)
 
 ## Installation
 
@@ -37,10 +40,12 @@ npm install @mtane0412/twitch-mcp-server
 # macOS/Linux
 export TWITCH_CLIENT_ID="your_client_id"
 export TWITCH_CLIENT_SECRET="your_client_secret"
+export TWITCH_GQL_CLIENT_ID="your_gql_client_id"  # Optional: For video comments feature
 
 # Windows (PowerShell)
 $env:TWITCH_CLIENT_ID="your_client_id"
 $env:TWITCH_CLIENT_SECRET="your_client_secret"
+$env:TWITCH_GQL_CLIENT_ID="your_gql_client_id"    # Optional: For video comments feature
 ```
 
 Alternatively, you can create a `.env` file:
@@ -48,7 +53,10 @@ Alternatively, you can create a `.env` file:
 ```env
 TWITCH_CLIENT_ID=your_client_id
 TWITCH_CLIENT_SECRET=your_client_secret
+TWITCH_GQL_CLIENT_ID=your_gql_client_id  # Optional: For video comments feature
 ```
+
+Note: For information about obtaining the TWITCH_GQL_CLIENT_ID, please refer to [twitch-graphql-api](https://github.com/SuperSonicHub1/twitch-graphql-api).
 
 ## Usage
 
@@ -196,6 +204,35 @@ Example output:
       "type": "archive",
       "publishDate": "2024-02-01T12:00:00Z",
       "mutedSegments": []
+    }
+  ]
+}
+```
+
+### get_video_comments
+Retrieves comments from an archived video using Twitch's GraphQL API.
+
+Input:
+```json
+{
+  "videoId": "string" // Required: Video ID
+}
+```
+
+Example output:
+```json
+{
+  "total": 41,
+  "comments": [
+    {
+      "id": "comment-id",
+      "createdAt": "2024-02-01T12:00:00Z",
+      "message": "Comment text",
+      "commenter": {
+        "id": "user-id",
+        "displayName": "User Name",
+        "login": "username"
+      }
     }
   ]
 }

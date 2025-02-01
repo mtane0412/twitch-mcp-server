@@ -9,9 +9,11 @@ import {
 } from '@modelcontextprotocol/sdk/types.js';
 import { ApiClient } from '@twurple/api';
 import { AppTokenAuthProvider } from '@twurple/auth';
+import axios from 'axios';
 
 const CLIENT_ID = process.env.TWITCH_CLIENT_ID;
 const CLIENT_SECRET = process.env.TWITCH_CLIENT_SECRET;
+const GQL_CLIENT_ID = process.env.TWITCH_GQL_CLIENT_ID || 'kimne78kx3ncx6brgo4mv6wki5h1ko';
 
 if (!CLIENT_ID || !CLIENT_SECRET) {
   throw new Error('TWITCH_CLIENT_ID and TWITCH_CLIENT_SECRET environment variables are required');
@@ -299,6 +301,20 @@ class TwitchServer {
               },
             },
             required: ['channelName'],
+          },
+        },
+        {
+          name: 'get_video_comments',
+          description: 'アーカイブ動画のコメントを取得します',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              videoId: {
+                type: 'string',
+                description: 'ビデオID',
+              },
+            },
+            required: ['videoId'],
           },
         },
       ],
@@ -706,6 +722,132 @@ class TwitchServer {
                 },
               ],
             };
+          }
+
+          case 'get_video_comments': {
+            const { videoId } = request.params.arguments as { videoId: string };
+            const comments = [];
+            let cursor = '';
+            let hasNextPage = true;
+
+            // 最初のリクエスト
+            const firstQuery = {
+              operationName: 'VideoCommentsByOffsetOrCursor',
+              variables: {
+                videoID: videoId,
+                contentOffsetSeconds: 0
+              },
+              extensions: {
+                persistedQuery: {
+                  version: 1,
+                  sha256Hash: 'b70a3591ff0f4e0313d126c6a1502d79a1c02baebb288227c582044aa76adf6a'
+                }
+              }
+            };
+
+            try {
+              const response = await axios.post('https://gql.twitch.tv/gql', [firstQuery], {
+                headers: {
+                  'Client-ID': GQL_CLIENT_ID,
+                  'Content-Type': 'application/json'
+                }
+              });
+
+              const data = response.data[0].data.video?.comments;
+              if (!data) {
+                throw new McpError(
+                  ErrorCode.InvalidParams,
+                  `Video "${videoId}" not found or comments are disabled`
+                );
+              }
+              comments.push(...(data.edges || []).map((edge: any) => ({
+                id: edge.node.id,
+                createdAt: edge.node.createdAt,
+                message: edge.node.message.fragments[0].text,
+                commenter: {
+                  id: edge.node.commenter?.id,
+                  displayName: edge.node.commenter?.displayName,
+                  login: edge.node.commenter?.login
+                }
+              })));
+
+              if (data.pageInfo.hasNextPage) {
+                cursor = data.edges[data.edges.length - 1].cursor;
+              } else {
+                hasNextPage = false;
+              }
+
+              // 残りのコメントを取得
+              while (hasNextPage) {
+                const query = {
+                  operationName: 'VideoCommentsByOffsetOrCursor',
+                  variables: {
+                    videoID: videoId,
+                    cursor: cursor
+                  },
+                  extensions: {
+                    persistedQuery: {
+                      version: 1,
+                      sha256Hash: 'b70a3591ff0f4e0313d126c6a1502d79a1c02baebb288227c582044aa76adf6a'
+                    }
+                  }
+                };
+
+                const response = await axios.post('https://gql.twitch.tv/gql', [query], {
+                  headers: {
+                    'Client-ID': GQL_CLIENT_ID,
+                    'Content-Type': 'application/json'
+                  }
+                });
+
+                const data = response.data[0].data.video?.comments;
+                if (!data) {
+                  throw new McpError(
+                    ErrorCode.InvalidParams,
+                    `Video "${videoId}" not found or comments are disabled`
+                  );
+                }
+                comments.push(...(data.edges || []).map((edge: any) => ({
+                  id: edge.node.id,
+                  createdAt: edge.node.createdAt,
+                  message: edge.node.message.fragments[0].text,
+                  commenter: {
+                    id: edge.node.commenter?.id,
+                    displayName: edge.node.commenter?.displayName,
+                    login: edge.node.commenter?.login
+                  }
+                })));
+
+                if (data.pageInfo.hasNextPage) {
+                  cursor = data.edges[data.edges.length - 1].cursor;
+                } else {
+                  hasNextPage = false;
+                }
+
+                // レートリミット対策
+                await new Promise(resolve => setTimeout(resolve, 100));
+              }
+
+              return {
+                content: [
+                  {
+                    type: 'text',
+                    text: JSON.stringify({
+                      total: comments.length,
+                      comments
+                    }, null, 2),
+                  },
+                ],
+              };
+            } catch (error) {
+              if (axios.isAxiosError(error)) {
+                throw new McpError(
+                  ErrorCode.InternalError,
+                  `GraphQL API error: ${error.response?.data?.message || error.message}`
+                );
+              }
+              throw error;
+            }
           }
 
           default:
