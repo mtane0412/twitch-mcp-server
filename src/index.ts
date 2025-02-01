@@ -257,6 +257,30 @@ class TwitchServer {
             required: ['channelName'],
           },
         },
+        {
+          name: 'get_eventsub_subscriptions',
+          description: 'EventSubサブスクリプションのリストを取得します',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              status: {
+                type: 'string',
+                description: 'サブスクリプションのステータスでフィルター (enabled, webhook_callback_verification_pending, webhook_callback_verification_failed, notification_failures_exceeded, authorization_revoked, user_removed)',
+                enum: ['enabled', 'webhook_callback_verification_pending', 'webhook_callback_verification_failed', 'notification_failures_exceeded', 'authorization_revoked', 'user_removed'],
+              },
+              type: {
+                type: 'string',
+                description: 'サブスクリプションのタイプでフィルター',
+              },
+              limit: {
+                type: 'number',
+                description: '取得する最大サブスクリプション数(デフォルト: 100)',
+                minimum: 1,
+                maximum: 1000,
+              },
+            },
+          },
+        },
       ],
     }));
 
@@ -562,6 +586,44 @@ class TwitchServer {
                     slowModeDelay: settings.slowModeDelay,
                     subscriberOnlyModeEnabled: settings.subscriberOnlyModeEnabled,
                     uniqueChatModeEnabled: settings.uniqueChatModeEnabled,
+                  }, null, 2),
+                },
+              ],
+            };
+          }
+
+          case 'get_eventsub_subscriptions': {
+            const { status, type, limit = 100 } = request.params.arguments as {
+              status?: string;
+              type?: string;
+              limit?: number;
+            };
+            const subscriptions = await this.apiClient.eventSub.getSubscriptions({
+              status,
+              type,
+              limit,
+            });
+            return {
+              content: [
+                {
+                  type: 'text',
+                  text: JSON.stringify({
+                    total: subscriptions.total,
+                    totalCost: subscriptions.totalCost,
+                    maxTotalCost: subscriptions.maxTotalCost,
+                    subscriptions: subscriptions.data.map(subscription => ({
+                      id: subscription.id,
+                      status: subscription.status,
+                      type: subscription.type,
+                      version: subscription.version,
+                      condition: subscription.condition,
+                      creationDate: subscription.creationDate,
+                      transport: {
+                        method: subscription.transport.method,
+                        callback: subscription.transport.callback,
+                      },
+                      cost: subscription.cost,
+                    })),
                   }, null, 2),
                 },
               ],
