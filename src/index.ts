@@ -203,6 +203,26 @@ class TwitchServer {
             required: ['userNames'],
           },
         },
+        {
+          name: 'get_clips',
+          description: 'クリップの情報を取得します',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              channelName: {
+                type: 'string',
+                description: 'Twitchチャンネル名',
+              },
+              limit: {
+                type: 'number',
+                description: '取得する最大クリップ数(デフォルト: 20)',
+                minimum: 1,
+                maximum: 100,
+              },
+            },
+            required: ['channelName'],
+          },
+        },
       ],
     }));
 
@@ -450,6 +470,39 @@ class TwitchServer {
                     creationDate: user.creationDate,
                     broadcasterType: user.broadcasterType,
                     type: user.type,
+                  })), null, 2),
+                },
+              ],
+            };
+          }
+
+          case 'get_clips': {
+            const { channelName, limit = 20 } = request.params.arguments as { channelName: string; limit?: number };
+            const user = await this.apiClient.users.getUserByName(channelName);
+            if (!user) {
+              throw new McpError(ErrorCode.InvalidParams, `Channel "${channelName}" not found`);
+            }
+            const clips = await this.apiClient.clips.getClipsForBroadcaster(user.id, { limit });
+            return {
+              content: [
+                {
+                  type: 'text',
+                  text: JSON.stringify(clips.data.map(clip => ({
+                    id: clip.id,
+                    url: clip.url,
+                    embedUrl: clip.embedUrl,
+                    broadcasterId: clip.broadcasterId,
+                    broadcasterName: clip.broadcasterDisplayName,
+                    creatorId: clip.creatorId,
+                    creatorName: clip.creatorDisplayName,
+                    videoId: clip.videoId,
+                    gameId: clip.gameId,
+                    language: clip.language,
+                    title: clip.title,
+                    viewCount: clip.views,
+                    creationDate: clip.creationDate,
+                    thumbnailUrl: clip.thumbnailUrl,
+                    duration: clip.duration,
                   })), null, 2),
                 },
               ],
