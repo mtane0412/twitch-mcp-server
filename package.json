@@ -13,10 +13,18 @@
   "license": "MIT",
   "description": "Twitch MCP Server using Helix API",
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^0.1.0",
-    "@twurple/api": "^7.0.0",
-    "@twurple/auth": "^7.0.0",
+    "@modelcontextprotocol/sdk": "^1.4.1",
+    "@twurple/api": "^7.2.1",
+    "@twurple/auth": "^7.2.1",
     "@types/node": "^20.0.0",
     "typescript": "^5.0.0"
-  }
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mtane0412/twitch-mcp-server.git"
+  },
+  "bugs": {
+    "url": "https://github.com/mtane0412/twitch-mcp-server/issues"
+  },
+  "homepage": "https://github.com/mtane0412/twitch-mcp-server#readme"
 }
