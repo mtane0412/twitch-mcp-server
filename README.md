@@ -21,15 +21,10 @@ A Model Context Protocol (MCP) server that interacts with the Twitch API. This s
 
 ## Installation
 
-1. Clone the repository:
-```bash
-git clone https://github.com/mtane0412/twitch-mcp-server.git
-cd twitch-mcp-server
-```
+Install the package using npm:
 
-2. Install dependencies:
 ```bash
-npm install
+npm install @mtane0412/twitch-mcp-server
 ```
 
 ## Configuration
@@ -57,30 +52,11 @@ TWITCH_CLIENT_SECRET=your_client_secret
 
 ## Usage
 
-1. Build the project:
+After installation, you can start using the server by running:
+
 ```bash
-npm run build
+npx @mtane0412/twitch-mcp-server
 ```
-
-2. Start the server:
-```bash
-npm start
-```
-
-## Development
-
-For development:
-1. Start TypeScript watch mode in one terminal:
-```bash
-npm run dev
-```
-
-2. Start the server in another terminal:
-```bash
-npm start
-```
-
-This will automatically recompile TypeScript files when they change, and you'll need to restart the server to apply the changes.
 
 ## Available Tools
 
