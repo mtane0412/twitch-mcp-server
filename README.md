@@ -2,6 +2,8 @@
 
 A Model Context Protocol (MCP) server that interacts with the Twitch API. This server utilizes the Twitch Helix API to retrieve channel information, stream details, game data, and more.
 
+<a href="https://glama.ai/mcp/servers/1pub2f29fy"><img width="380" height="200" src="https://glama.ai/mcp/servers/1pub2f29fy/badge" alt="Twitch Server MCP server" /></a>
+
 ## Features
 
 - Get channel information (profile, description, creation date, etc.)
