@@ -6,164 +6,114 @@ export class GraphQLService {
 
   async getVideoComments(videoId: string): Promise<any[]> {
     const comments: any[] = [];
-    let cursor = '';
-    let hasNextPage = true;
-
-    // 最初のリクエスト
-    const firstQuery = this.createVideoCommentsQuery(videoId);
-    const firstResponse = await this.executeQuery(firstQuery);
-    this.processCommentsResponse(firstResponse, comments);
-
-    cursor = this.getNextCursor(firstResponse);
-    hasNextPage = this.hasNextPage(firstResponse);
-
-    // 残りのコメントを取得
-    while (hasNextPage) {
-      const query = this.createVideoCommentsQuery(videoId, cursor);
-      const response = await this.executeQuery(query);
-      this.processCommentsResponse(response, comments);
-
-      cursor = this.getNextCursor(response);
-      hasNextPage = this.hasNextPage(response);
-
-      // レートリミット対策
-      await new Promise(resolve => setTimeout(resolve, 100));
-    }
-
-    return comments;
-  }
-
-  private createVideoCommentsQuery(videoId: string, cursor?: string) {
-    return {
-      operationName: 'VideoCommentsByOffsetOrCursor',
-      variables: cursor
-        ? { videoID: videoId, cursor }
-        : { videoID: videoId, contentOffsetSeconds: 0 },
-      query: cursor
-        ? this.getCommentsWithCursorQuery()
-        : this.getInitialCommentsQuery(),
-    };
-  }
-
-  private getInitialCommentsQuery(): string {
-    return `
-      query VideoCommentsByOffsetOrCursor($videoID: ID!, $contentOffsetSeconds: Int!) {
-        video(id: $videoID) {
-          comments(contentOffsetSeconds: $contentOffsetSeconds) {
-            edges {
-              cursor
-              node {
-                id
-                createdAt
-                commenter {
-                  id
-                  displayName
-                  login
-                }
-                message {
-                  fragments {
-                    text
-                  }
-                }
-              }
-            }
-            pageInfo {
-              hasNextPage
-            }
-          }
-        }
-      }
-    `;
-  }
-
-  private getCommentsWithCursorQuery(): string {
-    return `
-      query VideoCommentsByOffsetOrCursor($videoID: ID!, $cursor: String!) {
-        video(id: $videoID) {
-          comments(after: $cursor) {
-            edges {
-              cursor
-              node {
-                id
-                createdAt
-                commenter {
-                  id
-                  displayName
-                  login
-                }
-                message {
-                  fragments {
-                    text
-                  }
-                }
-              }
-            }
-            pageInfo {
-              hasNextPage
-            }
-          }
-        }
-      }
-    `;
-  }
-
-  private async executeQuery(query: any) {
     try {
-      const response = await this.gqlSession.post('/gql', [query]);
-      
-      if (response.status !== 200) {
-        throw new McpError(
-          ErrorCode.InvalidParams,
-          `Request failed with status ${response.status}: ${response.statusText}`
-        );
+      // 最初のリクエスト
+      const firstQuery = this.createFirstQuery(videoId);
+      const firstResponse = await this.gqlSession.post('/gql', firstQuery);
+      const firstData = firstResponse.data;
+
+      // 最初のコメントを処理
+      firstData[0]?.data?.video?.comments?.edges?.forEach((comment: any) => {
+        comments.push(this.processComment(comment));
+      });
+
+      // 次ページの確認とcursor取得
+      let cursor: string | null = null;
+      if (firstData[0]?.data?.video?.comments?.pageInfo?.hasNextPage) {
+        const edges = firstData[0].data.video.comments.edges;
+        if (edges.length > 0) {
+          cursor = edges[edges.length - 1].cursor;
+          await this.sleep(100);
+        }
       }
 
-      const responseData = response.data?.[0];
-      if (!responseData?.data?.video) {
-        throw new McpError(
-          ErrorCode.InvalidParams,
-          `Video not found or invalid response`
-        );
+      // ページネーションループ
+      while (cursor) {
+        const query = this.createCursorQuery(videoId, cursor);
+        const response = await this.gqlSession.post('/gql', query);
+        const data = response.data;
+
+        // コメントを処理
+        data[0]?.data?.video?.comments?.edges?.forEach((comment: any) => {
+          comments.push(this.processComment(comment));
+        });
+
+        // 次ページの確認
+        if (data[0]?.data?.video?.comments?.pageInfo?.hasNextPage) {
+          const edges = data[0].data.video.comments.edges;
+          if (edges.length > 0) {
+            cursor = edges[edges.length - 1].cursor;
+            await this.sleep(100);
+          } else {
+            cursor = null;
+          }
+        } else {
+          cursor = null;
+        }
       }
 
-      const data = responseData.data.video.comments;
-      if (!data?.edges) {
-        throw new McpError(
-          ErrorCode.InvalidParams,
-          `Comments are disabled or not available`
-        );
-      }
-
-      return data;
+      return comments;
     } catch (error: any) {
-      if (error instanceof McpError) {
-        throw error;
+      if (error.response?.data?.message) {
+        throw new McpError(
+          ErrorCode.InvalidParams,
+          `GraphQL API error: ${error.response.data.message}`
+        );
       }
       throw new McpError(
         ErrorCode.InternalError,
-        `GraphQL API error: ${error.response?.data?.message || error.message}`
+        `Network error: ${error.message}`
       );
     }
   }
 
-  private processCommentsResponse(data: any, comments: any[]) {
-    comments.push(...(data.edges || []).map((edge: any) => ({
-      id: edge.node.id,
-      createdAt: edge.node.createdAt,
-      message: edge.node.message?.fragments?.[0]?.text ?? 'No message content',
-      commenter: {
-        id: edge.node.commenter?.id,
-        displayName: edge.node.commenter?.displayName,
-        login: edge.node.commenter?.login
+  private createFirstQuery(videoId: string) {
+    return [{
+      operationName: 'VideoCommentsByOffsetOrCursor',
+      variables: {
+        videoID: videoId,
+        contentOffsetSeconds: 0
+      },
+      extensions: {
+        persistedQuery: {
+          version: 1,
+          sha256Hash: 'b70a3591ff0f4e0313d126c6a1502d79a1c02baebb288227c582044aa76adf6a'
+        }
       }
-    })));
+    }];
   }
 
-  private getNextCursor(data: any): string {
-    return data.edges[data.edges.length - 1].cursor;
+  private createCursorQuery(videoId: string, cursor: string) {
+    return [{
+      operationName: 'VideoCommentsByOffsetOrCursor',
+      variables: {
+        videoID: videoId,
+        cursor: cursor
+      },
+      extensions: {
+        persistedQuery: {
+          version: 1,
+          sha256Hash: 'b70a3591ff0f4e0313d126c6a1502d79a1c02baebb288227c582044aa76adf6a'
+        }
+      }
+    }];
   }
 
-  private hasNextPage(data: any): boolean {
-    return data.pageInfo.hasNextPage;
+  private processComment(comment: any) {
+    const node = comment.node;
+    return {
+      id: node.id,
+      createdAt: node.createdAt,
+      message: node.message?.fragments?.[0]?.text ?? '',
+      commenter: node.commenter ? {
+        id: node.commenter.id,
+        displayName: node.commenter.displayName || node.commenter.login,
+        login: node.commenter.login
+      } : null
+    };
+  }
+
+  private sleep(ms: number): Promise<void> {
+    return new Promise(resolve => setTimeout(resolve, ms));
   }
 }

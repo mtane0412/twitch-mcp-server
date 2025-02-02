@@ -43,12 +43,10 @@ npm install @mtane0412/twitch-mcp-server
 # macOS/Linux
 export TWITCH_CLIENT_ID="your_client_id"
 export TWITCH_CLIENT_SECRET="your_client_secret"
-export TWITCH_GQL_CLIENT_ID="your_gql_client_id"  # Optional: For video comments feature
 
 # Windows (PowerShell)
 $env:TWITCH_CLIENT_ID="your_client_id"
 $env:TWITCH_CLIENT_SECRET="your_client_secret"
-$env:TWITCH_GQL_CLIENT_ID="your_gql_client_id"    # Optional: For video comments feature
 ```
 
 Alternatively, you can create a `.env` file:
@@ -56,10 +54,7 @@ Alternatively, you can create a `.env` file:
 ```env
 TWITCH_CLIENT_ID=your_client_id
 TWITCH_CLIENT_SECRET=your_client_secret
-TWITCH_GQL_CLIENT_ID=your_gql_client_id  # Optional: For video comments feature
 ```
-
-Note: For information about obtaining the TWITCH_GQL_CLIENT_ID, please refer to [twitch-graphql-api](https://github.com/SuperSonicHub1/twitch-graphql-api).
 
 ## Usage
 
