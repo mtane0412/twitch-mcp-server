@@ -11,6 +11,18 @@ import { ApiClient } from '@twurple/api';
 import { AppTokenAuthProvider } from '@twurple/auth';
 import axios from 'axios';
 
+import { toolDefinitions } from './tools/definitions.js';
+import { handleGetChannelInfo, handleGetChatSettings } from './tools/handlers/channel.js';
+import { handleGetStreamInfo, handleGetStreams } from './tools/handlers/stream.js';
+import { handleGetTopGames, handleGetGame, handleSearchCategories } from './tools/handlers/game.js';
+import { handleSearchChannels } from './tools/handlers/search.js';
+import { handleGetGlobalEmotes, handleGetGlobalBadges } from './tools/handlers/chat.js';
+import { handleGetUsers } from './tools/handlers/user.js';
+import { handleGetClips } from './tools/handlers/clip.js';
+import { handleGetVideos, handleGetVideoComments } from './tools/handlers/video.js';
+import { GraphQLService } from './services/gql.js';
+import { handleApiError } from './utils/twitch.js';
+
 const CLIENT_ID = process.env.TWITCH_CLIENT_ID;
 const CLIENT_SECRET = process.env.TWITCH_CLIENT_SECRET;
 const GQL_CLIENT_ID = process.env.TWITCH_GQL_CLIENT_ID || 'kimne78kx3ncx6brgo4mv6wki5h1ko';
@@ -22,8 +34,21 @@ if (!CLIENT_ID || !CLIENT_SECRET) {
 class TwitchServer {
   private server: Server;
   private apiClient: ApiClient;
+  private gqlService: GraphQLService;
 
   constructor() {
+    // GraphQL用のセッションを作成
+    const gqlSession = axios.create({
+      baseURL: 'https://gql.twitch.tv',
+      headers: {
+        'Client-ID': GQL_CLIENT_ID,
+        'Content-Type': 'application/json'
+      },
+      timeout: 10000
+    });
+
+    this.gqlService = new GraphQLService(gqlSession);
+
     const authProvider = new AppTokenAuthProvider(CLIENT_ID as string, CLIENT_SECRET as string);
     this.apiClient = new ApiClient({ authProvider });
 
@@ -50,709 +75,91 @@ class TwitchServer {
 
   private setupToolHandlers() {
     this.server.setRequestHandler(ListToolsRequestSchema, async () => ({
-      tools: [
-        {
-          name: 'get_channel_info',
-          description: 'チャンネル情報を取得します',
-          inputSchema: {
-            type: 'object',
-            properties: {
-              channelName: {
-                type: 'string',
-                description: 'Twitchチャンネル名',
-              },
-            },
-            required: ['channelName'],
-          },
-        },
-        {
-          name: 'get_stream_info',
-          description: '配信情報を取得します',
-          inputSchema: {
-            type: 'object',
-            properties: {
-              channelName: {
-                type: 'string',
-                description: 'Twitchチャンネル名',
-              },
-            },
-            required: ['channelName'],
-          },
-        },
-        {
-          name: 'get_top_games',
-          description: '人気のゲームのリストを取得します',
-          inputSchema: {
-            type: 'object',
-            properties: {
-              limit: {
-                type: 'number',
-                description: '取得する最大ゲーム数(デフォルト: 20)',
-                minimum: 1,
-                maximum: 100,
-              },
-            },
-          },
-        },
-        {
-          name: 'get_game',
-          description: '特定のゲームの情報を取得します',
-          inputSchema: {
-            type: 'object',
-            properties: {
-              name: {
-                type: 'string',
-                description: 'ゲーム名',
-              },
-            },
-            required: ['name'],
-          },
-        },
-        {
-          name: 'search_categories',
-          description: 'ゲームやカテゴリーを検索します',
-          inputSchema: {
-            type: 'object',
-            properties: {
-              query: {
-                type: 'string',
-                description: '検索キーワード',
-              },
-              limit: {
-                type: 'number',
-                description: '取得する最大カテゴリー数(デフォルト: 20)',
-                minimum: 1,
-                maximum: 100,
-              },
-            },
-            required: ['query'],
-          },
-        },
-        {
-          name: 'search_channels',
-          description: 'チャンネルを検索します',
-          inputSchema: {
-            type: 'object',
-            properties: {
-              query: {
-                type: 'string',
-                description: '検索キーワード',
-              },
-              limit: {
-                type: 'number',
-                description: '取得する最大チャンネル数(デフォルト: 20)',
-                minimum: 1,
-                maximum: 100,
-              },
-            },
-            required: ['query'],
-          },
-        },
-        {
-          name: 'get_streams',
-          description: '現在ライブ配信中のストリームを取得します',
-          inputSchema: {
-            type: 'object',
-            properties: {
-              game: {
-                type: 'string',
-                description: 'ゲーム名でフィルター',
-              },
-              language: {
-                type: 'string',
-                description: '言語でフィルター (例: ja, en)',
-              },
-              limit: {
-                type: 'number',
-                description: '取得する最大ストリーム数(デフォルト: 20)',
-                minimum: 1,
-                maximum: 100,
-              },
-            },
-          },
-        },
-        {
-          name: 'get_global_emotes',
-          description: 'グローバルエモートのリストを取得します',
-          inputSchema: {
-            type: 'object',
-            properties: {},
-          },
-        },
-        {
-          name: 'get_global_badges',
-          description: 'グローバルチャットバッジのリストを取得します',
-          inputSchema: {
-            type: 'object',
-            properties: {},
-          },
-        },
-        {
-          name: 'get_users',
-          description: 'ユーザーの情報を取得します',
-          inputSchema: {
-            type: 'object',
-            properties: {
-              userNames: {
-                type: 'array',
-                description: 'Twitchユーザー名の配列',
-                items: {
-                  type: 'string',
-                },
-                maxItems: 100,
-              },
-            },
-            required: ['userNames'],
-          },
-        },
-        {
-          name: 'get_clips',
-          description: 'クリップの情報を取得します',
-          inputSchema: {
-            type: 'object',
-            properties: {
-              channelName: {
-                type: 'string',
-                description: 'Twitchチャンネル名',
-              },
-              limit: {
-                type: 'number',
-                description: '取得する最大クリップ数(デフォルト: 20)',
-                minimum: 1,
-                maximum: 100,
-              },
-            },
-            required: ['channelName'],
-          },
-        },
-        {
-          name: 'get_chat_settings',
-          description: 'チャット設定を取得します',
-          inputSchema: {
-            type: 'object',
-            properties: {
-              channelName: {
-                type: 'string',
-                description: 'Twitchチャンネル名',
-              },
-            },
-            required: ['channelName'],
-          },
-        },
-        {
-          name: 'get_videos',
-          description: 'チャンネルのビデオを取得します',
-          inputSchema: {
-            type: 'object',
-            properties: {
-              channelName: {
-                type: 'string',
-                description: 'Twitchチャンネル名',
-              },
-              limit: {
-                type: 'number',
-                description: '取得する最大ビデオ数(デフォルト: 20)',
-                minimum: 1,
-                maximum: 100,
-              },
-            },
-            required: ['channelName'],
-          },
-        },
-        {
-          name: 'get_video_comments',
-          description: 'アーカイブ動画のコメントを取得します',
-          inputSchema: {
-            type: 'object',
-            properties: {
-              videoId: {
-                type: 'string',
-                description: 'ビデオID',
-              },
-            },
-            required: ['videoId'],
-          },
-        },
-      ],
+      tools: toolDefinitions,
     }));
 
     this.server.setRequestHandler(CallToolRequestSchema, async (request) => {
       try {
+        const args = request.params.arguments as Record<string, unknown>;
+        
         switch (request.params.name) {
-          case 'get_channel_info': {
-            const { channelName } = request.params.arguments as { channelName: string };
-            const user = await this.apiClient.users.getUserByName(channelName);
-            if (!user) {
-              throw new McpError(ErrorCode.InvalidParams, `Channel "${channelName}" not found`);
-            }
-            const channel = await this.apiClient.channels.getChannelInfoById(user.id);
-            const response: any = {
-              id: user.id,
-              name: user.name,
-              displayName: user.displayName,
-              description: user.description,
-              profilePictureUrl: user.profilePictureUrl,
-              creationDate: user.creationDate,
-            };
-
-            if (channel) {
-              response.channel = {
-                name: channel.name,
-                game: channel.gameName,
-                title: channel.title,
-                language: channel.language,
-                tags: channel.tags,
-              };
-            }
-
-            return {
-              content: [
-                {
-                  type: 'text',
-                  text: JSON.stringify(response, null, 2),
-                },
-              ],
-            };
-          }
-
-          case 'get_stream_info': {
-            const { channelName } = request.params.arguments as { channelName: string };
-            const user = await this.apiClient.users.getUserByName(channelName);
-            if (!user) {
-              throw new McpError(ErrorCode.InvalidParams, `Channel "${channelName}" not found`);
-            }
-            const stream = await this.apiClient.streams.getStreamByUserId(user.id);
-            if (!stream) {
-              return {
-                content: [
-                  {
-                    type: 'text',
-                    text: JSON.stringify({
-                      status: 'offline',
-                      message: `${user.displayName} is currently offline`,
-                      lastOnline: null
-                    }, null, 2),
-                  },
-                ],
-              };
-            }
-            return {
-              content: [
-                {
-                  type: 'text',
-                  text: JSON.stringify({
-                    status: 'online',
-                    title: stream.title,
-                    game: stream.gameName,
-                    viewers: stream.viewers,
-                    startedAt: stream.startDate,
-                    language: stream.language,
-                    thumbnailUrl: stream.thumbnailUrl,
-                    tags: stream.tags,
-                  }, null, 2),
-                },
-              ],
-            };
-          }
-
-          case 'get_top_games': {
-            const { limit = 20 } = request.params.arguments as { limit?: number };
-            const games = await this.apiClient.games.getTopGames({ limit });
-            return {
-              content: [
-                {
-                  type: 'text',
-                  text: JSON.stringify(games.data.map(game => ({
-                    id: game.id,
-                    name: game.name,
-                    boxArtUrl: game.boxArtUrl,
-                  })), null, 2),
-                },
-              ],
-            };
-          }
-
-          case 'get_game': {
-            const { name } = request.params.arguments as { name: string };
-            const game = await this.apiClient.games.getGameByName(name);
-            if (!game) {
-              throw new McpError(ErrorCode.InvalidParams, `Game "${name}" not found`);
-            }
-            return {
-              content: [
-                {
-                  type: 'text',
-                  text: JSON.stringify({
-                    id: game.id,
-                    name: game.name,
-                    boxArtUrl: game.boxArtUrl,
-                  }, null, 2),
-                },
-              ],
-            };
-          }
-
-          case 'search_categories': {
-            const { query, limit = 20 } = request.params.arguments as { query: string; limit?: number };
-            const categories = await this.apiClient.search.searchCategories(query, { limit });
-            return {
-              content: [
-                {
-                  type: 'text',
-                  text: JSON.stringify(categories.data.map(category => ({
-                    id: category.id,
-                    name: category.name,
-                    boxArtUrl: category.boxArtUrl,
-                  })), null, 2),
-                },
-              ],
-            };
-          }
-
-          case 'search_channels': {
-            const { query, limit = 20 } = request.params.arguments as { query: string; limit?: number };
-            const channels = await this.apiClient.search.searchChannels(query, { limit });
-            return {
-              content: [
-                {
-                  type: 'text',
-                  text: JSON.stringify(channels.data.map(channel => ({
-                    id: channel.id,
-                    name: channel.name,
-                    displayName: channel.displayName,
-                    game: channel.gameName,
-                    language: channel.language,
-                    tags: channel.tags,
-                  })), null, 2),
-                },
-              ],
-            };
-          }
-
-          case 'get_streams': {
-            const { game, language, limit = 20 } = request.params.arguments as {
-              game?: string;
-              language?: string;
-              limit?: number;
-            };
-            const streams = await this.apiClient.streams.getStreams({
-              game,
-              language,
-              limit,
+          case 'get_channel_info':
+            return await handleGetChannelInfo(this.apiClient, {
+              channelName: args.channelName as string
             });
-            return {
-              content: [
-                {
-                  type: 'text',
-                  text: JSON.stringify(streams.data.map(stream => ({
-                    userId: stream.userId,
-                    userName: stream.userName,
-                    title: stream.title,
-                    game: stream.gameName,
-                    viewers: stream.viewers,
-                    startedAt: stream.startDate,
-                    language: stream.language,
-                    thumbnailUrl: stream.thumbnailUrl,
-                    tags: stream.tags,
-                  })), null, 2),
-                },
-              ],
-            };
-          }
 
-          case 'get_global_emotes': {
-            const emotes = await this.apiClient.chat.getGlobalEmotes();
-            return {
-              content: [
-                {
-                  type: 'text',
-                  text: JSON.stringify(emotes.map(emote => ({
-                    id: emote.id,
-                    name: emote.name,
-                    urls: {
-                      url1x: emote.getImageUrl(1),
-                      url2x: emote.getImageUrl(2),
-                      url4x: emote.getImageUrl(4),
-                    },
-                  })), null, 2),
-                },
-              ],
-            };
-          }
+          case 'get_stream_info':
+            return await handleGetStreamInfo(this.apiClient, {
+              channelName: args.channelName as string
+            });
 
-          case 'get_global_badges': {
-            const badges = await this.apiClient.chat.getGlobalBadges();
-            return {
-              content: [
-                {
-                  type: 'text',
-                  text: JSON.stringify(badges.map(badge => ({
-                    id: badge.id,
-                    versions: Object.fromEntries(
-                      badge.versions.map(version => [
-                        version.id,
-                        {
-                          title: version.title,
-                          imageUrl: version.getImageUrl(1),
-                        },
-                      ])
-                    ),
-                  })), null, 2),
-                },
-              ],
-            };
-          }
+          case 'get_top_games':
+            return await handleGetTopGames(this.apiClient, {
+              limit: args.limit as number | undefined
+            });
 
-          case 'get_users': {
-            const { userNames } = request.params.arguments as { userNames: string[] };
-            const users = await this.apiClient.users.getUsersByNames(userNames);
-            return {
-              content: [
-                {
-                  type: 'text',
-                  text: JSON.stringify(users.map(user => ({
-                    id: user.id,
-                    name: user.name,
-                    displayName: user.displayName,
-                    description: user.description,
-                    profilePictureUrl: user.profilePictureUrl,
-                    offlinePlaceholderUrl: user.offlinePlaceholderUrl,
-                    creationDate: user.creationDate,
-                    broadcasterType: user.broadcasterType,
-                    type: user.type,
-                  })), null, 2),
-                },
-              ],
-            };
-          }
+          case 'get_game':
+            return await handleGetGame(this.apiClient, {
+              name: args.name as string
+            });
 
-          case 'get_clips': {
-            const { channelName, limit = 20 } = request.params.arguments as { channelName: string; limit?: number };
-            const user = await this.apiClient.users.getUserByName(channelName);
-            if (!user) {
-              throw new McpError(ErrorCode.InvalidParams, `Channel "${channelName}" not found`);
-            }
-            const clips = await this.apiClient.clips.getClipsForBroadcaster(user.id, { limit });
-            return {
-              content: [
-                {
-                  type: 'text',
-                  text: JSON.stringify(clips.data.map(clip => ({
-                    id: clip.id,
-                    url: clip.url,
-                    embedUrl: clip.embedUrl,
-                    broadcasterId: clip.broadcasterId,
-                    broadcasterName: clip.broadcasterDisplayName,
-                    creatorId: clip.creatorId,
-                    creatorName: clip.creatorDisplayName,
-                    videoId: clip.videoId,
-                    gameId: clip.gameId,
-                    language: clip.language,
-                    title: clip.title,
-                    viewCount: clip.views,
-                    creationDate: clip.creationDate,
-                    thumbnailUrl: clip.thumbnailUrl,
-                    duration: clip.duration,
-                  })), null, 2),
-                },
-              ],
-            };
-          }
+          case 'search_categories':
+            return await handleSearchCategories(this.apiClient, {
+              query: args.query as string,
+              limit: args.limit as number | undefined
+            });
 
-          case 'get_chat_settings': {
-            const { channelName } = request.params.arguments as { channelName: string };
-            const user = await this.apiClient.users.getUserByName(channelName);
-            if (!user) {
-              throw new McpError(ErrorCode.InvalidParams, `Channel "${channelName}" not found`);
-            }
-            const settings = await this.apiClient.chat.getSettings(user.id);
-            return {
-              content: [
-                {
-                  type: 'text',
-                  text: JSON.stringify({
-                    emoteOnlyModeEnabled: settings.emoteOnlyModeEnabled,
-                    followerOnlyModeEnabled: settings.followerOnlyModeEnabled,
-                    followerOnlyModeDelay: settings.followerOnlyModeDelay,
-                    slowModeEnabled: settings.slowModeEnabled,
-                    slowModeDelay: settings.slowModeDelay,
-                    subscriberOnlyModeEnabled: settings.subscriberOnlyModeEnabled,
-                    uniqueChatModeEnabled: settings.uniqueChatModeEnabled,
-                  }, null, 2),
-                },
-              ],
-            };
-          }
+          case 'search_channels':
+            return await handleSearchChannels(this.apiClient, {
+              query: args.query as string,
+              limit: args.limit as number | undefined
+            });
 
-          case 'get_videos': {
-            const { channelName, limit = 20 } = request.params.arguments as { channelName: string; limit?: number };
-            const user = await this.apiClient.users.getUserByName(channelName);
-            if (!user) {
-              throw new McpError(ErrorCode.InvalidParams, `Channel "${channelName}" not found`);
-            }
-            const videos = await this.apiClient.videos.getVideosByUser(user.id, { limit });
-            return {
-              content: [
-                {
-                  type: 'text',
-                  text: JSON.stringify({
-                    total: videos.data.length,
-                    videos: videos.data.map(video => ({
-                      id: video.id,
-                      title: video.title,
-                      description: video.description,
-                      url: video.url,
-                      thumbnailUrl: video.thumbnailUrl,
-                      viewCount: video.views,
-                      creationDate: video.creationDate,
-                      duration: video.duration,
-                      language: video.language,
-                      type: video.type,
-                      publishDate: video.publishDate,
-                      mutedSegments: video.mutedSegmentData,
-                    })),
-                  }, null, 2),
-                },
-              ],
-            };
-          }
+          case 'get_streams':
+            return await handleGetStreams(this.apiClient, {
+              game: args.game as string | undefined,
+              language: args.language as string | undefined,
+              limit: args.limit as number | undefined
+            });
 
-          case 'get_video_comments': {
-            const { videoId } = request.params.arguments as { videoId: string };
-            const comments = [];
-            let cursor = '';
-            let hasNextPage = true;
+          case 'get_global_emotes':
+            return await handleGetGlobalEmotes(this.apiClient);
 
-            // 最初のリクエスト
-            const firstQuery = {
-              operationName: 'VideoCommentsByOffsetOrCursor',
-              variables: {
-                videoID: videoId,
-                contentOffsetSeconds: 0
-              },
-              extensions: {
-                persistedQuery: {
-                  version: 1,
-                  sha256Hash: 'b70a3591ff0f4e0313d126c6a1502d79a1c02baebb288227c582044aa76adf6a'
-                }
-              }
-            };
+          case 'get_global_badges':
+            return await handleGetGlobalBadges(this.apiClient);
 
-            try {
-              const response = await axios.post('https://gql.twitch.tv/gql', [firstQuery], {
-                headers: {
-                  'Client-ID': GQL_CLIENT_ID,
-                  'Content-Type': 'application/json'
-                }
-              });
+          case 'get_users':
+            return await handleGetUsers(this.apiClient, {
+              userNames: args.userNames as string[]
+            });
 
-              const data = response.data[0].data.video?.comments;
-              if (!data) {
-                throw new McpError(
-                  ErrorCode.InvalidParams,
-                  `Video "${videoId}" not found or comments are disabled`
-                );
-              }
-              comments.push(...(data.edges || []).map((edge: any) => ({
-                id: edge.node.id,
-                createdAt: edge.node.createdAt,
-                message: edge.node.message.fragments[0].text,
-                commenter: {
-                  id: edge.node.commenter?.id,
-                  displayName: edge.node.commenter?.displayName,
-                  login: edge.node.commenter?.login
-                }
-              })));
+          case 'get_clips':
+            return await handleGetClips(this.apiClient, {
+              channelName: args.channelName as string,
+              limit: args.limit as number | undefined
+            });
 
-              if (data.pageInfo.hasNextPage) {
-                cursor = data.edges[data.edges.length - 1].cursor;
-              } else {
-                hasNextPage = false;
-              }
+          case 'get_chat_settings':
+            return await handleGetChatSettings(this.apiClient, {
+              channelName: args.channelName as string
+            });
 
-              // 残りのコメントを取得
-              while (hasNextPage) {
-                const query = {
-                  operationName: 'VideoCommentsByOffsetOrCursor',
-                  variables: {
-                    videoID: videoId,
-                    cursor: cursor
-                  },
-                  extensions: {
-                    persistedQuery: {
-                      version: 1,
-                      sha256Hash: 'b70a3591ff0f4e0313d126c6a1502d79a1c02baebb288227c582044aa76adf6a'
-                    }
-                  }
-                };
+          case 'get_videos':
+            return await handleGetVideos(this.apiClient, {
+              channelName: args.channelName as string,
+              limit: args.limit as number | undefined
+            });
 
-                const response = await axios.post('https://gql.twitch.tv/gql', [query], {
-                  headers: {
-                    'Client-ID': GQL_CLIENT_ID,
-                    'Content-Type': 'application/json'
-                  }
-                });
-
-                const data = response.data[0].data.video?.comments;
-                if (!data) {
-                  throw new McpError(
-                    ErrorCode.InvalidParams,
-                    `Video "${videoId}" not found or comments are disabled`
-                  );
-                }
-                comments.push(...(data.edges || []).map((edge: any) => ({
-                  id: edge.node.id,
-                  createdAt: edge.node.createdAt,
-                  message: edge.node.message.fragments[0].text,
-                  commenter: {
-                    id: edge.node.commenter?.id,
-                    displayName: edge.node.commenter?.displayName,
-                    login: edge.node.commenter?.login
-                  }
-                })));
-
-                if (data.pageInfo.hasNextPage) {
-                  cursor = data.edges[data.edges.length - 1].cursor;
-                } else {
-                  hasNextPage = false;
-                }
-
-                // レートリミット対策
-                await new Promise(resolve => setTimeout(resolve, 100));
-              }
-
-              return {
-                content: [
-                  {
-                    type: 'text',
-                    text: JSON.stringify({
-                      total: comments.length,
-                      comments
-                    }, null, 2),
-                  },
-                ],
-              };
-            } catch (error) {
-              if (axios.isAxiosError(error)) {
-                throw new McpError(
-                  ErrorCode.InternalError,
-                  `GraphQL API error: ${error.response?.data?.message || error.message}`
-                );
-              }
-              throw error;
-            }
-          }
+          case 'get_video_comments':
+            return await handleGetVideoComments(this.gqlService, {
+              videoId: args.videoId as string
+            });
 
           default:
             throw new McpError(ErrorCode.MethodNotFound, `Unknown tool: ${request.params.name}`);
         }
       } catch (error: unknown) {
-        if (error instanceof McpError) {
-          throw error;
-        }
-        console.error('[Twitch API Error]', error);
-        const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
-        throw new McpError(ErrorCode.InternalError, `Twitch API error: ${errorMessage}`);
+        handleApiError(error);
       }
     });
   }
