@@ -1,5 +1,5 @@
 {
-  "name": "twitch-mcp-server",
+  "name": "@mtane0412/twitch-mcp-server",
   "version": "2.0.1",
   "type": "module",
   "main": "build/index.js",
