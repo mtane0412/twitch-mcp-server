@@ -1,5 +1,7 @@
 # Twitch MCP Server
 
+[![smithery badge](https://smithery.ai/badge/@mtane0412/twitch-mcp-server)](https://smithery.ai/server/@mtane0412/twitch-mcp-server)
+
 A Model Context Protocol (MCP) server that interacts with the Twitch API. This server utilizes the Twitch Helix API to retrieve channel information, stream details, game data, and more.
 
 ## Features
@@ -26,6 +28,16 @@ A Model Context Protocol (MCP) server that interacts with the Twitch API. This s
 - Twitch GraphQL Client ID (for video comments feature)
 
 ## Installation
+
+### Installing via Smithery
+
+To install Twitch MCP Server for Claude Desktop automatically via [Smithery](https://smithery.ai/server/@mtane0412/twitch-mcp-server):
+
+```bash
+npx -y @smithery/cli install @mtane0412/twitch-mcp-server --client claude
+```
+
+### Manual Installation
 
 Install the package using npm:
 
