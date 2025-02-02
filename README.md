@@ -30,7 +30,7 @@ A Model Context Protocol (MCP) server that interacts with the Twitch API. This s
 Install the package using npm:
 
 ```bash
-npm install @mtane0412/twitch-mcp-server
+npm install twitch-mcp-server
 ```
 
 ## Configuration
