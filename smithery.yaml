@@ -1,0 +1,21 @@
+# Smithery configuration file: https://smithery.ai/docs/config#smitheryyaml
+
+startCommand:
+  type: stdio
+  configSchema:
+    # JSON Schema defining the configuration options for the MCP.
+    type: object
+    required:
+      - twitchClientId
+      - twitchClientSecret
+    properties:
+      twitchClientId:
+        type: string
+        description: The Twitch API Client ID
+      twitchClientSecret:
+        type: string
+        description: The Twitch API Client Secret
+  commandFunction:
+    # A function that produces the CLI command to start the MCP on stdio.
+    |-
+    config => ({command: 'node', args: ['build/index.js'], env: {TWITCH_CLIENT_ID: config.twitchClientId, TWITCH_CLIENT_SECRET: config.twitchClientSecret}})
