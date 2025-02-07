@@ -4,55 +4,36 @@ import { McpError, ErrorCode } from '@modelcontextprotocol/sdk/types.js';
 export class GraphQLService {
   constructor(private gqlSession: AxiosInstance) {}
 
-  async getVideoComments(videoId: string): Promise<any[]> {
-    const comments: any[] = [];
+  async getVideoComments(videoId: string, limit: number = 20, cursor?: string): Promise<{ comments: any[], nextCursor: string | null }> {
     try {
-      // 最初のリクエスト
-      const firstQuery = this.createFirstQuery(videoId);
-      const firstResponse = await this.gqlSession.post('/gql', firstQuery);
-      const firstData = firstResponse.data;
+      // クエリの作成
+      const query = cursor
+        ? this.createCursorQuery(videoId, cursor)
+        : this.createFirstQuery(videoId);
+      
+      // リクエストの実行
+      const response = await this.gqlSession.post('/gql', query);
+      const data = response.data;
 
-      // 最初のコメントを処理
-      firstData[0]?.data?.video?.comments?.edges?.forEach((comment: any) => {
-        comments.push(this.processComment(comment));
-      });
+      const comments: any[] = [];
+      const edges = data[0]?.data?.video?.comments?.edges || [];
+      const pageInfo = data[0]?.data?.video?.comments?.pageInfo;
 
-      // 次ページの確認とcursor取得
-      let cursor: string | null = null;
-      if (firstData[0]?.data?.video?.comments?.pageInfo?.hasNextPage) {
-        const edges = firstData[0].data.video.comments.edges;
-        if (edges.length > 0) {
-          cursor = edges[edges.length - 1].cursor;
-          await this.sleep(100);
-        }
+      // コメントの処理(指定された数まで)
+      for (let i = 0; i < Math.min(edges.length, limit); i++) {
+        comments.push(this.processComment(edges[i]));
       }
 
-      // ページネーションループ
-      while (cursor) {
-        const query = this.createCursorQuery(videoId, cursor);
-        const response = await this.gqlSession.post('/gql', query);
-        const data = response.data;
-
-        // コメントを処理
-        data[0]?.data?.video?.comments?.edges?.forEach((comment: any) => {
-          comments.push(this.processComment(comment));
-        });
-
-        // 次ページの確認
-        if (data[0]?.data?.video?.comments?.pageInfo?.hasNextPage) {
-          const edges = data[0].data.video.comments.edges;
-          if (edges.length > 0) {
-            cursor = edges[edges.length - 1].cursor;
-            await this.sleep(100);
-          } else {
-            cursor = null;
-          }
-        } else {
-          cursor = null;
-        }
+      // 次のページのカーソルを取得
+      let nextCursor: string | null = null;
+      if (pageInfo?.hasNextPage && comments.length === limit) {
+        nextCursor = edges[edges.length - 1].cursor;
       }
 
-      return comments;
+      return {
+        comments,
+        nextCursor
+      };
     } catch (error: any) {
       if (error.response?.data?.message) {
         throw new McpError(

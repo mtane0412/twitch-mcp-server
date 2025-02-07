@@ -30,12 +30,20 @@ export async function handleGetVideos(
 
 export async function handleGetVideoComments(
   gqlService: GraphQLService,
-  args: { videoId: string }
+  args: { videoId: string; limit?: number; cursor?: string }
 ) {
-  const comments = await gqlService.getVideoComments(args.videoId);
+  const { comments, nextCursor } = await gqlService.getVideoComments(
+    args.videoId,
+    args.limit,
+    args.cursor
+  );
 
   return formatResponse({
     total: comments.length,
     comments,
+    pagination: {
+      hasNextPage: !!nextCursor,
+      nextCursor: nextCursor
+    }
   });
 }

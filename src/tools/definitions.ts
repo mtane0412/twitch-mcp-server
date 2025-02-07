@@ -219,6 +219,16 @@ export const toolDefinitions: Tool[] = [
           type: 'string',
           description: 'ビデオID',
         },
+        limit: {
+          type: 'number',
+          description: '取得する最大コメント数(デフォルト: 20)',
+          minimum: 1,
+          maximum: 100,
+        },
+        cursor: {
+          type: 'string',
+          description: '次のページのカーソル',
+        },
       },
       required: ['videoId'],
     },
