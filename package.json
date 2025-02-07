@@ -3,12 +3,13 @@
   "version": "2.0.3",
   "type": "module",
   "main": "build/index.js",
+  "access": "public",
   "scripts": {
     "build": "tsc && node -e \"require('fs').chmodSync('build/index.js', '755')\"",
+    "postbuild": "shx chmod +x build/*.js",
     "start": "node build/index.js",
     "dev": "tsc -w",
-    "inspect": "CLIENT_PORT=8080 SERVER_PORT=9000 npx @modelcontextprotocol/inspector build/index.js",
-    "prepublishOnly": "npm run build"
+    "inspect": "CLIENT_PORT=8080 SERVER_PORT=9000 npx @modelcontextprotocol/inspector build/index.js"
   },
   "files": [
     "build/"
@@ -26,6 +27,7 @@
     "@twurple/auth": "^7.2.1",
     "@types/node": "^20.0.0",
     "axios": "^1.7.9",
+    "shx": "^0.3.4",
     "typescript": "^5.0.0"
   },
   "repository": {
